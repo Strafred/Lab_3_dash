@@ -1,38 +1,48 @@
-import datetime
-
 import dash
 import numpy as np
+import pandas as pd
+import plotly.express as px
 from dash import dcc, html
 from dash.dependencies import Input, Output
-import plotly.express as px
-import pandas as pd
 
 covid_data = pd.read_excel('covid_polymatica.xlsx')
+covid_data = covid_data[["Регион ", "дата", "случаи заболевания", "количество смертей"]]
 
 regions = list(covid_data["Регион "].unique())
 city_options = [{'label': region, 'value': region} for region in regions]
 
-app = dash.Dash(__name__)
+external_stylesheets = ['/assets/style.css']
+app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+app.title = 'Lab 3, task 2'
 
 app.layout = html.Div([
     html.Div([
-        html.H1("Статистика COVID-19 в регионах России")
+        html.H1("Covid 19 data by region in Russia:")
     ], className="header-box"),
 
-    dcc.Dropdown(
-        id='region-dropdown',
-        options=city_options,
-        value='Москва'
-    ),
+    html.Div([
+        html.Div(dcc.DatePickerRange(
+            id='date-picker-range',
+            start_date=covid_data["дата"].min(),
+            end_date=covid_data["дата"].max(),
+            display_format='YYYY-MM-DD',
+        ), className="input-box-title"),
+        html.Div(dcc.Dropdown(
+            id='region-dropdown',
+            options=city_options,
+            value='Москва ',
+            style={'height': '2em'}
+        ), style={'width': '25%'})
+    ], className="input-box"),
 
-    dcc.DatePickerRange(
-        id='date-picker-range',
-        start_date=covid_data.iloc[:, 2].min(),
-        end_date=covid_data.iloc[:, 2].max(),
-        display_format='YYYY-MM-DD'
-    ),
-
+    html.Div([
+        html.H2("Diseases Graph:")
+    ], className="header-box"),
     dcc.Graph(id='diseases-graph'),
+
+    html.Div([
+        html.H2("Deaths Graph:")
+    ], className="header-box"),
     dcc.Graph(id='deaths-graph')
 ])
 
@@ -50,26 +60,16 @@ app.layout = html.Div([
 )
 def update_graphs(selected_region, start_date, end_date):
     print(selected_region)
-    print(np.datetime64(start_date))
-    print(np.datetime64(end_date))
 
+    start_date = np.datetime64(start_date)
+    end_date = np.datetime64(end_date)
 
+    filtered_data = covid_data[(covid_data["Регион "] == selected_region) & (covid_data["дата"] >= start_date) & (covid_data["дата"] <= end_date)]
 
+    diseases_graph_figure = px.line(filtered_data, x='дата', y='случаи заболевания')
+    deaths_graph_figure = px.line(filtered_data, x='дата', y='количество смертей')
 
-
-    filtered_data = covid_data[(covid_data.iloc[:, 0].isin(selected_region)) &
-                               (covid_data.iloc[:, 2] >= start_date) &
-                               (covid_data.iloc[:, 2] <= end_date)]
-
-    cases_figure = px.line(filtered_data, x=covid_data.columns[2], y=covid_data.columns[3],
-                           color=covid_data.columns[0],
-                           title='Количество заболевших по регионам')
-
-    deaths_figure = px.line(filtered_data, x=covid_data.columns[2], y=covid_data.columns[5],
-                            color=covid_data.columns[0],
-                            title='Количество смертей по регионам')
-
-    return cases_figure, deaths_figure
+    return diseases_graph_figure, deaths_graph_figure
 
 
 if __name__ == '__main__':
